@@ -31,6 +31,7 @@ nuget.exe
 *.lock.json
 *.db
 .vs/
+.vscode/
 [Tt]ools/Cake.*
 [Tt]ools/NBench.*
 [Tt]ools/NBench

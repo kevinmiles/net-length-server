@@ -17,7 +17,7 @@ namespace NetworkingPerf
             this.headerBuffer = new byte[4];
         }
 
-        public async Task<Buffer> ReadAsync()
+        public async ValueTask<Buffer> ReadAsync()
         {
             // read out 4 bytes representing length
             await inner.ReadAsync(headerBuffer, 0, 4);

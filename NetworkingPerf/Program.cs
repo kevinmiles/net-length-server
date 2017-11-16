@@ -17,6 +17,7 @@ using System.Net.Sockets;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
+using System.IO;
 
 namespace NetworkingPerf
 {
@@ -45,7 +46,8 @@ namespace NetworkingPerf
                             {
                                 socket.NoDelay = true;
                                 var netStream = new NetworkStream(socket);
-                                sslStream = new SslStream(netStream);
+                                var bufferedStream = new BufferedStream(netStream, 2048);
+                                sslStream = new SslStream(bufferedStream);
                                 await sslStream.AuthenticateAsServerAsync(tlsCertificate, false, SslProtocols.Tls12 | SslProtocols.Tls11, true);
                                 var messenger = new Messenger(sslStream);
                                 while (true)
