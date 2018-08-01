@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Buffers;
 using System.IO;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -34,6 +35,10 @@ namespace NetworkingPerf
             while (left.Length > 0)
             {
                 var read = await inner.ReadAsync(left);
+                if (read <= 0)
+                {
+                    throw new SocketException(0);
+                }
                 left = left.Slice(read);
             }
             return (length, buffer);
