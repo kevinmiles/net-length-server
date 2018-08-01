@@ -53,6 +53,11 @@ namespace NetworkingPerf
                                 while (true)
                                 {
                                     (var length, var message) = await messenger.ReadAsync();
+                                    if (length <= 0)
+                                    {
+                                        Console.WriteLine("out: {0}", length);
+                                        break;
+                                    }
                                     await messenger.WriteAsync(length, message);
                                 }
                             }
