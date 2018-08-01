@@ -73,8 +73,8 @@ namespace NetworkingPerf
             //InternalLoggerFactory.DefaultFactory.AddProvider(new ConsoleLoggerProvider((s, level) => true, false));
             ResourceLeakDetector.Level = ResourceLeakDetector.DetectionLevel.Disabled;
 
-            var dispatcher = new DispatcherEventLoop();
-            var bossGroup = new MultithreadEventLoopGroup(_ => dispatcher, 1);
+            var dispatcher = new DispatcherEventLoopGroup();
+            var bossGroup = dispatcher;
             var workerGroup = new WorkerEventLoopGroup(dispatcher);
             //var bossGroup = new MultithreadEventLoopGroup(elg => new SingleThreadEventLoop(elg, "STEL-B", TimeSpan.FromMilliseconds(200)), 1);
             //var workerGroup = new MultithreadEventLoopGroup(elg => new SingleThreadEventLoop(elg, "STEL-W", TimeSpan.FromMilliseconds(200)), ThreadCount);
