@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Buffers;
 using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -17,87 +18,75 @@ namespace NetworkingPerf
             this.headerBuffer = new byte[4];
         }
 
-        public async ValueTask<Buffer> ReadAsync()
+        public async ValueTask<(int Length, IMemoryOwner<byte> Memory)> ReadAsync()
         {
             // read out 4 bytes representing length
-            await inner.ReadAsync(headerBuffer, 0, 4);
+            await inner.ReadAsync(headerBuffer);
             var length = (headerBuffer[0] << 24) +
                 (headerBuffer[1] << 16) +
                 (headerBuffer[2] << 8) +
                 headerBuffer[3];
-            if (length == 0)
-            {
-                return new Buffer(0);
-            }
 
-            var buffer = new Buffer(length);//new byte[lenth];
-            var data = buffer.Data;
+            var buffer = MemoryPool<byte>.Shared.Rent(length);
+            var data = buffer.Memory;
 
-            int read = 0;
-            while (read < length)
+            var left = data.Slice(0, length);
+            while (left.Length > 0)
             {
-                read += await inner.ReadAsync(data.Array, data.Offset + read, length - (read + data.Offset));
+                var read = await inner.ReadAsync(left);
+                left = left.Slice(read);
             }
-            return buffer;
+            return (length, buffer);
         }
 
-        public async Task WriteAsync(Buffer message)
+        public async ValueTask WriteAsync(int length, IMemoryOwner<byte> message)
         {
-            byte[] payload = null;
-            try
+            using (var payloadOwner = MemoryPool<byte>.Shared.Rent(length + 4))
             {
-                var data = message.Data;
-                var length = data.Count;
-                payload = BufferPool.Instance.Rent(length + 4);
-                payload[0] = (byte)(length >> 24);
-                payload[1] = (byte)(length >> 16);
-                payload[2] = (byte)(length >> 8);
-                payload[3] = (byte)length;
-                Array.Copy(data.Array, data.Offset, payload, 4, length);
+                var payload = payloadOwner.Memory.Slice(0, length + 4);
+                payload.Span[0] = (byte)(length >> 24);
+                payload.Span[1] = (byte)(length >> 16);
+                payload.Span[2] = (byte)(length >> 8);
+                payload.Span[3] = (byte)length;
+
+                message.Memory.Span.Slice(0, length).CopyTo(payload.Span.Slice(4));
                 message.Dispose();
-                await inner.WriteAsync(payload, 0, length + 4);
-            }
-            finally
-            {
-                if (payload != null)
-                {
-                    BufferPool.Instance.Return(payload);
-                }
+                await inner.WriteAsync(payload);
             }
         }
     }
 
-    public sealed class Buffer : IDisposable
-    {
-        readonly byte[] inner;
-        int length;
-        int disposed;
+    //public sealed class Buffer : IDisposable
+    //{
+    //    readonly byte[] inner;
+    //    int length;
+    //    int disposed;
 
-        public Buffer(int length)
-        {
-            this.length = length;
-            if (length > 0)
-                this.inner = BufferPool.Instance.Rent(length);
-            else
-                this.inner = Array.Empty<byte>();
-        }
+    //    public Buffer(int length)
+    //    {
+    //        this.length = length;
+    //        if (length > 0)
+    //            this.inner = BufferPool.Instance.Rent(length);
+    //        else
+    //            this.inner = Array.Empty<byte>();
+    //    }
 
-        public ArraySegment<byte> Data => new ArraySegment<byte>(this.inner, 0, length);
+    //    public ArraySegment<byte> Data => new ArraySegment<byte>(this.inner, 0, length);
 
-        public void Dispose()
-        {
-            if (this.length > 0)
-            {
-                if (Interlocked.Exchange(ref this.disposed, 1) == 0)
-                {
-                    BufferPool.Instance.Return(this.inner);
-                }
-            }
-        }
-    }
+    //    public void Dispose()
+    //    {
+    //        if (this.length > 0)
+    //        {
+    //            if (Interlocked.Exchange(ref this.disposed, 1) == 0)
+    //            {
+    //                BufferPool.Instance.Return(this.inner);
+    //            }
+    //        }
+    //    }
+    //}
 
-    static class BufferPool
-    {
-        public static readonly ArrayPool<byte> Instance = ArrayPool<byte>.Shared;
-    }
+    //static class BufferPool
+    //{
+    //    public static readonly ArrayPool<byte> Instance = ArrayPool<byte>.Shared;
+    //}
 }

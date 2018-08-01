@@ -46,14 +46,14 @@ namespace NetworkingPerf
                             {
                                 socket.NoDelay = true;
                                 var netStream = new NetworkStream(socket);
-                                var bufferedStream = new BufferedStream(netStream, 2048);
-                                sslStream = new SslStream(bufferedStream);
+                                //var bufferedStream = new BufferedStream(netStream, 2048);
+                                sslStream = new SslStream(netStream);
                                 await sslStream.AuthenticateAsServerAsync(tlsCertificate, false, SslProtocols.Tls12 | SslProtocols.Tls11, true);
                                 var messenger = new Messenger(sslStream);
                                 while (true)
                                 {
-                                    var message = await messenger.ReadAsync();
-                                    await messenger.WriteAsync(message);
+                                    (var length, var message) = await messenger.ReadAsync();
+                                    await messenger.WriteAsync(length, message);
                                 }
                             }
                             catch (Exception ex)
