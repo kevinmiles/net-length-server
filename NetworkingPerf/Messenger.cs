@@ -22,7 +22,7 @@ namespace NetworkingPerf
         public async ValueTask<(int Length, IMemoryOwner<byte> Memory)> ReadAsync()
         {
             // read out 4 bytes representing length
-            await inner.ReadAsync(headerBuffer);
+            await ReadExactAsync(headerBuffer);
             var length = (headerBuffer[0] << 24) +
                 (headerBuffer[1] << 16) +
                 (headerBuffer[2] << 8) +
@@ -30,18 +30,22 @@ namespace NetworkingPerf
 
             var buffer = MemoryPool<byte>.Shared.Rent(length);
             var data = buffer.Memory;
+            await ReadExactAsync(data.Slice(0, length));
+            return (length, buffer);
+        }
 
-            var left = data.Slice(0, length);
+        async ValueTask ReadExactAsync(Memory<byte> memory)
+        {
+            var left = memory;
             while (left.Length > 0)
             {
                 var read = await inner.ReadAsync(left);
                 if (read <= 0)
                 {
-                    throw new SocketException(0);
+                    throw new IOException("Channel is closed");
                 }
                 left = left.Slice(read);
             }
-            return (length, buffer);
         }
 
         public async ValueTask WriteAsync(int length, IMemoryOwner<byte> message)
